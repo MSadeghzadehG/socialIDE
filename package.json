@@ -1,10 +1,9 @@
 {
-	"name": "helloworld",
-	"description": "",
+	"name": "socialide",
+	"description": "A Social IDE",
 	"version": "0.0.1",
 	"preview": true,
-	"displayName": "INAHA",
-	"icon": "resources/code-share.png",
+	"displayName": "INAHASHA",
 	"engines": {
 		"vscode": "^1.41.0"
 	},
@@ -12,37 +11,48 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:extension.helloWorld"
+		"onView:users",
+		"onView:chat"
 	],
-	"main": "./out/extension.js",
+	"main": "./out/main.js",
 	"contributes": {
+		
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "test-id",
+					"title": "Socaila IDE",
+					"icon": "resources/computer.svg"
+				}
+			]
+		},
+		"views": {
+			"test-id": [
+				{
+					"id": "chat",
+					"name": "Chat"
+				}
+			]
+		},
 		"commands": [
 			{
-				"command": "extension.helloWorld",
-				"title": "Hello World"
+				"command": "chat.send_to_all",
+				"title": "Send",
+				"icon":{
+					"dark": "resources/send_dark.svg",
+					"light": "resources/send_light.svg"
+				}
 			}
 		],
-		"viewsContainers": {
-            "activitybar": [
-                {
-                    "id": "test-id",
-                    "title": "Extention ASLI!",
-                    "icon": "resources/code-share.png"
-                }
-            ]
-        },
-        "views": {
-            "test-id": [
-                {
-                    "id": "users",
-                    "name": "Online Users"
-                },
-                {
-                    "id": "files",
-                    "name": "File Manager"
-                }
-            ]
-        }
+		"menus": {
+			"view/title": [
+				{
+					"command": "chat.send_to_all",
+					"when": "view == chat",
+					"group": "navigation"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
@@ -61,5 +71,8 @@
 		"typescript": "^3.6.4",
 		"tslint": "^5.20.0",
 		"vscode-test": "^1.2.2"
+	},
+	"dependencies": {
+		"scaledrone-node": "^1.5.0"
 	}
 }
