@@ -1,73 +1,124 @@
-import { Message } from './MessageInterface'
-const Scaledrone = require('scaledrone-node');
-let drone: any;
-let my_id: any;
-let my_room;
-export let online_users: { id: any; }[];
+import { username } from './main'
+import { eventOccurred, listenTo, EventTopics, Event } from './EventDispatcher'
 
-export function send_message(msg: Message) {
-  console.log('sending: ', msg);
-  drone.publish({
-    room: msg.receiver,
-    message: msg.content
-  });
+const Scaledrone = require('scaledrone-node');
+/**
+ * There are 3 rooms:
+ * 1. observable-global : everyone joins it at first
+ * 2. clientID : private room only he/she is member of, others can only send to it
+ * 3. observable-clientID : viewers of a host are joined at it
+ */
+type ConnectionMessage = {
+  receiver: string;
+  content: Event;
+}
+type Member = {
+  id: string, clientData: { name: string }
+};
+
+var drone: any;
+export var myId: string = "UNINITIALIZED";
+var myPrivateRoom: any;
+var globalRoom: any;
+var hostRoom: any | undefined;
+export var onlineUsers: Member[]; // No need to initialize
+
+var lastSentTime = 0;
+var messageQueue: ConnectionMessage[] = [];
+
+listenTo(EventTopics.HANDSHAKE, (e) => {
+  if (myId == "UNINITIALIZED") {
+    myId = e;
+    console.log("joined with id", myId);
+    myPrivateRoom = drone.subscribe(myId); // private room only I am at
+    myPrivateRoom.on('message', (message: any) => { // used for data received event
+      eventOccurred(message.data);
+    });
+  }
+});
+
+const delayMillieSeconds = 50;
+
+export function send(msg: ConnectionMessage | undefined) {
+  if (msg == undefined)
+    return
+  if (Date.now() - lastSentTime > delayMillieSeconds) {
+    lastSentTime = Date.now();
+    drone.publish({
+      room: msg.receiver,
+      message: msg.content
+    });
+    if (messageQueue.length != 0) {
+      setTimeout(() => { send(messageQueue.shift()) }, delayMillieSeconds);
+    }
+  } else
+    messageQueue.push(msg);
 }
 
-export function intialize() {
+export function joinHostRoom(hostId: string) {
+  console.log('join host room', hostId);
+  hostRoom?.unsubscribe();
+  hostRoom = drone.subscribe('observable-' + hostId);
+  hostRoom.on('open', (error: any) => {
+    if (error) {
+      console.error(error);
+    } else {
+      // Connected to global room :
+      console.log('Connected to Host', hostId);
+    }
+  });
+  hostRoom.on('message', (message: any) => { // used for data received event
+    eventOccurred(message.data);
+  });
+}
+export function leaveHostRoom() {
+  console.log('left host room', hostRoom);
+  hostRoom?.unsubscribe();
+}
+export function initialize() {
   drone = new Scaledrone('6c7P3JiJufXLEdAt', {
     // Data sent with every message
     data: {
-      name: 'Amir',
+      name: username,
     },
   });
 
-  const obervable_room = drone.subscribe('observable-room');
+  globalRoom = drone.subscribe('observable-global'); // global room everyone is in it
 
-  obervable_room.on('open', (error: any) => {
+  globalRoom.on('open', (error: any) => {
     if (error) {
       return console.error(error);
-    }
-    // Connected to a room
-  });
-
-  obervable_room.on('members', (m: any) => {
-    // when user has successfully connected to an observable room
-    online_users = m;
-    my_id = m[m.length - 1].id;
-    my_room = drone.subscribe(my_id);
-    my_room.on('data', (text: string, member: { id: any; clientData: any }) => {
-      if (member) {
-        console.log('received:', text, 'from:', member.id, 'name:', member.clientData.name || 'name not received');
-      } else {
-        // Message is from server :?
-        console.log('server:', text);
-      }
-    });
-    console.log('my id', my_id);
-  });
-
-  obervable_room.on('member_join', (m: any) => {
-    online_users.push(m);
-    console.log('joined:', m);
-  });
-
-  obervable_room.on('member_leave', ({ id }: any) => {
-    const index = online_users.findIndex((member: { id: any; }) => member.id === id);
-    online_users.splice(index, 1);
-    console.log('left:', id);
-  });
-
-  obervable_room.on('data', (text: string, member: { id: any; }) => {
-    if (member) {
-      console.log('received:', text, 'from:', member.id);
     } else {
-      // Message is from server :?
-      console.log('server:', text);
+      // Connected to global room
     }
   });
 
+  globalRoom.on('members', (m: any) => {
+    // get all users when successfully connected to the global room
+    if (myId == "UNINITIALIZED")
+      send({ receiver: 'observable-global', content: { topic: EventTopics.HANDSHAKE, content: "handshake" } })
+    onlineUsers = m;
+  });
+
+  globalRoom.on('member_join', (m: Member) => {
+    onlineUsers.push(m);
+    console.log('joined global:', m);
+  });
+
+  globalRoom.on('member_leave', ({ id }: any) => {
+    const index = onlineUsers.findIndex(member => member.id === id);
+    onlineUsers.splice(index, 1);
+    console.log('left global:', id);
+  });
+
+  globalRoom.on('message', (message: { data: Event, clientId: string }) => { // used for data received event
+    if (message.data.topic != EventTopics.HANDSHAKE)
+      eventOccurred(message.data);
+    else
+      eventOccurred({ topic: EventTopics.HANDSHAKE, content: message.clientId });
+  });
   drone.on('close', (event: any) => {
-    console.log('Connection was closed', event);
+    console.log('Connection is closed', event);
   });
 
   drone.on('error', (error: any) => {
@@ -77,6 +128,5 @@ export function intialize() {
 }
 
 export function terminate() {
-  console.log('FUCKKKK');
   drone.close();
 }

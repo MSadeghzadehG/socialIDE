@@ -1,25 +1,57 @@
 import * as connectionSetup from './ConnectionSetup';
+import { Event, EventTopics } from './EventDispatcher';
+
 export class ConnectionManger {
-    private static sigleton_manager: ConnectionManger;
+    private static _singletonManager: ConnectionManger;
+    isHost: boolean = true;
+    hostId: string = "";
+
     //singleton is used, so private constructor 
     private constructor() {
-        connectionSetup.intialize();
+        connectionSetup.initialize();
     }
-    public static get_manager() {
-        if (this.sigleton_manager == undefined) {
-            this.sigleton_manager = new ConnectionManger();
+    public static getManager() {
+        if (this._singletonManager == undefined) {
+            this._singletonManager = new ConnectionManger();
         }
-        return this.sigleton_manager;
+        return this._singletonManager;
     }
-    get_online_users() {
-        return connectionSetup.online_users;
+    getOnlineUsers() {
+        return connectionSetup.onlineUsers;
     }
-    send_to_all(msg: string) {
-        if (msg != '')
-            connectionSetup.send_message({ receiver: 'observable-room', topic: 'chat', content: msg });
+    sendToAll(e: Event) { // send message to all online users
+        connectionSetup.send({ receiver: "observable-global", content: e });
     }
-    send_to(msg: string, receiver_user_id: string) {
-        connectionSetup.send_message({ receiver: receiver_user_id, topic: 'chat', content: msg });
+    sendToId(receiverUserId: string, e: Event) {
+        connectionSetup.send({ receiver: receiverUserId, content: e });
+    }
+    sendToViewers(e: Event) {
+        if (this.isHost)
+            connectionSetup.send({ receiver: 'observable-' + connectionSetup.myId, content: e });
+        else
+            console.error('something is wrong, viewer trying to send to viewers', e);
+    }
+    isValidHost(userIndex: number): boolean { // validate host index
+        return userIndex < connectionSetup.onlineUsers.length &&
+            connectionSetup.onlineUsers[userIndex].id != connectionSetup.myId;
+    }
+    viewUser(userIndex: number): void {
+        this.hostId = connectionSetup.onlineUsers[userIndex].id
+        if (this.hostId != connectionSetup.myId) { // don't view yourself
+            this.isHost = false;
+            connectionSetup.joinHostRoom(this.hostId);
+            connectionSetup.send({
+                receiver: this.hostId,
+                content: { topic: EventTopics.WHOLE_CODE, content: "" }
+            })
+        } else {
+            this.hostId = "";
+        }
+    }
+    unViewUser() {
+        this.isHost = true;
+        connectionSetup.leaveHostRoom();
+        this.hostId = "";
     }
     quit() {
         connectionSetup.terminate();

@@ -11,34 +11,40 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onView:users",
-		"onView:chat"
+		"onView:onlineUsers"
 	],
 	"main": "./out/main.js",
 	"contributes": {
-		
 		"viewsContainers": {
 			"activitybar": [
 				{
-					"id": "test-id",
-					"title": "Socaila IDE",
+					"id": "socialIDEView",
+					"title": "Social IDE",
 					"icon": "resources/computer.svg"
 				}
 			]
 		},
 		"views": {
-			"test-id": [
+			"socialIDEView": [
 				{
-					"id": "chat",
-					"name": "Chat"
+					"id": "onlineUsers",
+					"name": "Online Users"
 				}
 			]
 		},
 		"commands": [
 			{
-				"command": "chat.send_to_all",
-				"title": "Send",
-				"icon":{
+				"command": "communication.chooseUser",
+				"title": "Choose User to View",
+				"icon": {
+					"dark": "resources/programmer.svg",
+					"light": "resources/programmer.svg"
+				}
+			},
+			{
+				"command": "communication.sendGlobalMessage",
+				"title": "Send Message to All",
+				"icon": {
 					"dark": "resources/send_dark.svg",
 					"light": "resources/send_light.svg"
 				}
@@ -47,8 +53,13 @@
 		"menus": {
 			"view/title": [
 				{
-					"command": "chat.send_to_all",
-					"when": "view == chat",
+					"command": "communication.chooseUser",
+					"when": "view == onlineUsers",
+					"group": "navigation"
+				},
+				{
+					"command": "communication.sendGlobalMessage",
+					"when": "view == onlineUsers",
 					"group": "navigation"
 				}
 			]
@@ -74,5 +85,8 @@
 	},
 	"dependencies": {
 		"scaledrone-node": "^1.5.0"
+	},
+	"optionalDependencies": {
+		"utf-8-validate": "^5.0.2"
 	}
 }
